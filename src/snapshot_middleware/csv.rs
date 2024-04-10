@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, path::Path};
 
 use anyhow::Context;
 use maplit::hashmap;
-use memofs::{IoResultExt, Vfs};
+use ken_memofs::{IoResultExt, Vfs};
 use serde::Serialize;
 
 use crate::snapshot::{InstanceContext, InstanceMetadata, InstanceSnapshot};
@@ -165,7 +165,7 @@ fn convert_localization_csv(contents: &[u8]) -> Result<String, csv::Error> {
 mod test {
     use super::*;
 
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn csv_from_vfs() {

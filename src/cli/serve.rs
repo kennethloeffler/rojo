@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
 use crate::{serve_session::ServeSession, web::LiveServer};

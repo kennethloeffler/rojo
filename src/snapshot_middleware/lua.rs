@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path, str};
 
-use memofs::{IoResultExt, Vfs};
+use ken_memofs::{IoResultExt, Vfs};
 use rbx_dom_weak::types::Enum;
 
 use crate::snapshot::{InstanceContext, InstanceMetadata, InstanceSnapshot};
@@ -117,7 +117,7 @@ mod test {
     use super::*;
 
     use maplit::hashmap;
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn class_module_from_vfs() {

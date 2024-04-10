@@ -5,8 +5,8 @@ use std::{
 
 use fs_err as fs;
 use fs_err::File;
+use ken_memofs::VfsSnapshot;
 use maplit::hashmap;
-use memofs::VfsSnapshot;
 use semver::Version;
 
 fn snapshot_from_fs_path(path: &Path) -> io::Result<VfsSnapshot> {

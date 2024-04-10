@@ -24,7 +24,7 @@ use std::{
 };
 
 use anyhow::Context;
-use memofs::{IoResultExt, Vfs};
+use ken_memofs::{IoResultExt, Vfs};
 use serde::{Deserialize, Serialize};
 
 use crate::glob::Glob;

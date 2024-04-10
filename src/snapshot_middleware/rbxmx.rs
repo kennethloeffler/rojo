@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::Context;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 
 use crate::snapshot::{InstanceContext, InstanceMetadata, InstanceSnapshot};
 
@@ -45,7 +45,7 @@ pub fn snapshot_rbxmx(
 mod test {
     use super::*;
 
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn plain_folder() {

@@ -9,8 +9,8 @@ use std::{
 };
 
 use crossbeam_channel::Sender;
-use memofs::IoResultExt;
-use memofs::Vfs;
+use ken_memofs::IoResultExt;
+use ken_memofs::Vfs;
 use thiserror::Error;
 
 use crate::{

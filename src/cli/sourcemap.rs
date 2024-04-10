@@ -6,7 +6,7 @@ use std::{
 
 use clap::Parser;
 use fs_err::File;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use rayon::prelude::*;
 use rbx_dom_weak::types::Ref;
 use serde::Serialize;

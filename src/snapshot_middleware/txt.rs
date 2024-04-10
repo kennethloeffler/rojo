@@ -1,7 +1,7 @@
 use std::{path::Path, str};
 
 use maplit::hashmap;
-use memofs::{IoResultExt, Vfs};
+use ken_memofs::{IoResultExt, Vfs};
 
 use crate::snapshot::{InstanceContext, InstanceMetadata, InstanceSnapshot};
 
@@ -45,7 +45,7 @@ pub fn snapshot_txt(
 mod test {
     use super::*;
 
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn instance_from_vfs() {

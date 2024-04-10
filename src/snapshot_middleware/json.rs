@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use maplit::hashmap;
-use memofs::{IoResultExt, Vfs};
+use ken_memofs::{IoResultExt, Vfs};
 
 use crate::{
     lua_ast::{Expression, Statement},
@@ -77,7 +77,7 @@ fn json_to_lua_value(value: serde_json::Value) -> Expression {
 mod test {
     use super::*;
 
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn instance_from_vfs() {

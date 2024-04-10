@@ -1,5 +1,5 @@
 [package]
-name = "memofs"
+name = "ken-memofs"
 description = "Virtual filesystem with configurable backends."
 version = "0.3.0"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]

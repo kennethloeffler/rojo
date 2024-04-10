@@ -5,7 +5,7 @@ use std::{
 
 use crossbeam_channel::{select, Receiver, RecvError, Sender};
 use jod_thread::JoinHandle;
-use memofs::{IoResultExt, Vfs, VfsEvent};
+use ken_memofs::{IoResultExt, Vfs, VfsEvent};
 use rbx_dom_weak::types::{Ref, Variant};
 
 use crate::{

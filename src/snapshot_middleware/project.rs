@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, path::Path};
 
 use anyhow::{bail, Context};
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use rbx_dom_weak::types::{Attributes, Ref};
 use rbx_reflection::ClassTag;
 
@@ -333,7 +333,7 @@ mod test {
     use super::*;
 
     use maplit::hashmap;
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[ignore = "Functionality moved to root snapshot middleware"]
     #[test]

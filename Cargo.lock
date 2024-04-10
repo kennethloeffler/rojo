@@ -951,6 +951,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "ken-memofs"
+version = "0.3.0"
+dependencies = [
+ "crossbeam-channel",
+ "fs-err",
+ "notify",
+ "serde",
+]
+
+[[package]]
+name = "ken-rojo"
+version = "7.4.0"
+dependencies = [
+ "anyhow",
+ "backtrace",
+ "bincode",
+ "clap 3.2.25",
+ "criterion",
+ "crossbeam-channel",
+ "csv",
+ "embed-resource",
+ "env_logger",
+ "fs-err",
+ "futures",
+ "globset",
+ "humantime",
+ "hyper",
+ "insta",
+ "jod-thread",
+ "ken-memofs",
+ "log",
+ "maplit",
+ "num_cpus",
+ "opener",
+ "paste",
+ "pretty_assertions",
+ "profiling",
+ "rayon",
+ "rbx_binary",
+ "rbx_dom_weak",
+ "rbx_reflection",
+ "rbx_reflection_database",
+ "rbx_xml",
+ "reqwest",
+ "ritz",
+ "roblox_install",
+ "rojo-insta-ext",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "termcolor",
+ "thiserror",
+ "tokio",
+ "toml",
+ "uuid",
+ "walkdir",
+ "winreg 0.10.1",
+]
+
+[[package]]
 name = "kernel32-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1060,16 +1122,6 @@ name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "523dc4f511e55ab87b694dc30d0f820d60906ef06413f93d4d7a1385599cc149"
-
-[[package]]
-name = "memofs"
-version = "0.3.0"
-dependencies = [
- "crossbeam-channel",
- "fs-err",
- "notify",
- "serde",
-]
 
 [[package]]
 name = "mime"
@@ -1748,58 +1800,6 @@ dependencies = [
  "dirs",
  "thiserror",
  "winreg 0.6.2",
-]
-
-[[package]]
-name = "rojo"
-version = "7.4.0"
-dependencies = [
- "anyhow",
- "backtrace",
- "bincode",
- "clap 3.2.25",
- "criterion",
- "crossbeam-channel",
- "csv",
- "embed-resource",
- "env_logger",
- "fs-err",
- "futures",
- "globset",
- "humantime",
- "hyper",
- "insta",
- "jod-thread",
- "log",
- "maplit",
- "memofs",
- "num_cpus",
- "opener",
- "paste",
- "pretty_assertions",
- "profiling",
- "rayon",
- "rbx_binary",
- "rbx_dom_weak",
- "rbx_reflection",
- "rbx_reflection_database",
- "rbx_xml",
- "reqwest",
- "ritz",
- "roblox_install",
- "rojo-insta-ext",
- "semver",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "termcolor",
- "thiserror",
- "tokio",
- "toml",
- "uuid",
- "walkdir",
- "winreg 0.10.1",
 ]
 
 [[package]]

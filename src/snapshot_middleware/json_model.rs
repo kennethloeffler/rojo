@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, path::Path, str};
 
 use anyhow::Context;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use rbx_dom_weak::types::{Attributes, Ref};
 use serde::Deserialize;
 
@@ -123,7 +123,7 @@ impl JsonModel {
 mod test {
     use super::*;
 
-    use memofs::{InMemoryFs, VfsSnapshot};
+    use ken_memofs::{InMemoryFs, VfsSnapshot};
 
     #[test]
     fn model_from_vfs() {

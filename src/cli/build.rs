@@ -7,7 +7,7 @@ use std::{
 use anyhow::{bail, Context};
 use clap::{CommandFactory, Parser};
 use fs_err::File;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use roblox_install::RobloxStudio;
 use tokio::runtime::Runtime;
 

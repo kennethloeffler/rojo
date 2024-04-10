@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use memofs::{InMemoryFs, Vfs, VfsSnapshot};
+use ken_memofs::{InMemoryFs, Vfs, VfsSnapshot};
 use roblox_install::RobloxStudio;
 
 use crate::serve_session::ServeSession;

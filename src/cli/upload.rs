@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, format_err, Context};
 use clap::Parser;
-use memofs::Vfs;
+use ken_memofs::Vfs;
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE, COOKIE, USER_AGENT},
     StatusCode,

@@ -1,5 +1,5 @@
 [package]
-name = "rojo"
+name = "ken-rojo"
 version = "7.4.0"
 rust-version = "1.70.0"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]
@@ -42,7 +42,7 @@ name = "build"
 harness = false
 
 [dependencies]
-memofs = { version = "0.3.0", path = "crates/memofs" }
+ken-memofs = { version = "0.3.0", path = "crates/ken-memofs" }
 
 # These dependencies can be uncommented when working on rbx-dom simultaneously
 # rbx_binary = { path = "../rbx-dom/rbx_binary" }
@@ -95,7 +95,7 @@ profiling = "1.0.15"
 winreg = "0.10.1"
 
 [build-dependencies]
-memofs = { version = "0.3.0", path = "crates/memofs" }
+ken-memofs = { version = "0.3.0", path = "crates/ken-memofs" }
 
 embed-resource = "1.8.0"
 anyhow = "1.0.80"
