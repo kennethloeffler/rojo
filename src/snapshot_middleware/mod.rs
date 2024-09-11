@@ -19,17 +19,21 @@ mod txt;
 mod util;
 
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     sync::OnceLock,
 };
 
 use anyhow::Context;
 use memofs::{IoResultExt, Vfs};
+use rbx_dom_weak::{types::Variant, Instance};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     glob::Glob,
+    resolution::UnresolvedValue,
     syncback::{SyncbackReturn, SyncbackSnapshot},
+    variant_eq::variant_eq,
 };
 use crate::{
     snapshot::{InstanceContext, InstanceSnapshot, SyncRule},
@@ -387,4 +391,59 @@ pub fn default_sync_rules() -> &'static [SyncRule] {
             sync_rule!("*.rbxm", Rbxm),
         ]
     })
+}
+
+fn filter_default_property(
+    snapshot: &SyncbackSnapshot,
+    new_inst: &Instance,
+    name: &str,
+    value: &Variant,
+    attributes: &mut BTreeMap<String, UnresolvedValue>,
+    properties: &mut BTreeMap<String, UnresolvedValue>,
+) {
+    let db = rbx_reflection_database::get();
+    let class_descriptor = db.classes.get(new_inst.class.as_str());
+
+    match value {
+        Variant::Attributes(attrs) => {
+            for (attr_name, attr_value) in attrs.iter() {
+                // We (probably) don't want to preserve internal attributes,
+                // only user defined ones.
+                if attr_name.starts_with("RBX") {
+                    continue;
+                }
+                attributes.insert(
+                    attr_name.clone(),
+                    UnresolvedValue::from_variant_unambiguous(attr_value.clone()),
+                );
+            }
+        }
+        Variant::SharedString(_) => {
+            log::warn!(
+                "Rojo cannot serialize the property {}.{name} in JSON files.\n\
+                 If this is not acceptable, resave the Instance at '{}' manually as an RBXM or RBXMX.",
+                new_inst.class, snapshot.get_new_inst_path(new_inst.referent())
+            )
+        }
+        _ => {
+            let new_prop_is_default = if let Some(class_descriptor) = class_descriptor {
+                if let Some(default) = db.find_default_property(class_descriptor, name) {
+                    variant_eq(value, default)
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if new_prop_is_default {
+                properties.remove(name);
+            } else {
+                properties.insert(
+                    name.to_owned(),
+                    UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
+                );
+            }
+        }
+    }
 }

@@ -17,6 +17,8 @@ use crate::{
     RojoRef,
 };
 
+use super::filter_default_property;
+
 pub fn snapshot_json_model(
     context: &InstanceContext,
     vfs: &Vfs,
@@ -97,32 +99,14 @@ fn json_model_from_pair<'sync>(
     let mut properties = BTreeMap::new();
     let mut attributes = BTreeMap::new();
     for (name, value) in prop_buffer.drain(..) {
-        match value {
-            Variant::Attributes(attrs) => {
-                for (attr_name, attr_value) in attrs.iter() {
-                    // We (probably) don't want to preserve internal attributes,
-                    // only user defined ones.
-                    if attr_name.starts_with("RBX") {
-                        continue;
-                    }
-                    attributes.insert(
-                        attr_name.clone(),
-                        UnresolvedValue::from_variant_unambiguous(attr_value.clone()),
-                    );
-                }
-            }
-            Variant::SharedString(_) => {
-                log::warn!(
-                "Rojo cannot serialize the property {}.{name} in model.json files.\n\
-                If this is not acceptable, resave the Instance at '{}' manually as an RBXM or RBXMX.", new_inst.class, snapshot.get_new_inst_path(new))
-            }
-            _ => {
-                properties.insert(
-                    name.to_owned(),
-                    UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
-                );
-            }
-        }
+        filter_default_property(
+            snapshot,
+            new_inst,
+            name,
+            value,
+            &mut attributes,
+            &mut properties,
+        )
     }
 
     let mut children = Vec::with_capacity(new_inst.children().len());

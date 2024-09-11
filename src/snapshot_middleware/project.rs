@@ -25,7 +25,7 @@ use crate::{
     RojoRef,
 };
 
-use super::{emit_legacy_scripts_default, snapshot_from_vfs};
+use super::{emit_legacy_scripts_default, filter_default_property, snapshot_from_vfs};
 
 pub fn snapshot_project(
     context: &InstanceContext,
@@ -534,33 +534,7 @@ fn project_node_property_syncback<'inst>(
     let properties = &mut node.properties;
     let mut attributes = BTreeMap::new();
     for (name, value) in filtered_properties {
-        match value {
-            Variant::Attributes(attrs) => {
-                for (attr_name, attr_value) in attrs.iter() {
-                    // We (probably) don't want to preserve internal attributes,
-                    // only user defined ones.
-                    if attr_name.starts_with("RBX") {
-                        continue;
-                    }
-                    attributes.insert(
-                        attr_name.clone(),
-                        UnresolvedValue::from_variant_unambiguous(attr_value.clone()),
-                    );
-                }
-            }
-            Variant::SharedString(_) => {
-                log::warn!(
-                    "Rojo cannot serialize the property {}.{name} in project files.\n\
-                    If this is not acceptable, resave the Instance at '{}' manually as an RBXM or RBXMX.", new_inst.class, snapshot.get_new_inst_path(new_inst.referent())
-                );
-            }
-            _ => {
-                properties.insert(
-                    name.to_string(),
-                    UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
-                );
-            }
-        }
+        filter_default_property(snapshot, new_inst, name, value, &mut attributes, properties)
     }
     node.attributes = attributes;
 }
@@ -590,6 +564,10 @@ fn project_node_should_reserialize(
     node_attributes: &BTreeMap<String, UnresolvedValue>,
     instance: InstanceWithMeta,
 ) -> anyhow::Result<bool> {
+    if node_properties.len() != instance.properties().len() {
+        return Ok(true);
+    }
+
     for (prop_name, unresolved_node_value) in node_properties {
         if let Some(inst_value) = instance.properties().get(prop_name) {
             let node_value = unresolved_node_value
