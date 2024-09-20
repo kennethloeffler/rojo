@@ -437,8 +437,12 @@ fn filter_default_property(
             };
 
             if new_prop_is_default {
+                // This function is sometimes called with a property map that
+                // already contains properties. In that case, we need to remove
+                // the property from the map if it's at its default value.
                 properties.remove(name);
             } else {
+                // Otherwise, we'll only insert non-default properties.
                 properties.insert(
                     name.to_owned(),
                     UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
