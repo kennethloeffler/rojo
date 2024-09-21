@@ -393,61 +393,70 @@ pub fn default_sync_rules() -> &'static [SyncRule] {
     })
 }
 
-fn filter_default_property(
+fn populate_unresolved_properties<'prop, I>(
     snapshot: &SyncbackSnapshot,
     new_inst: &Instance,
-    name: &str,
-    value: &Variant,
-    attributes: &mut BTreeMap<String, UnresolvedValue>,
-    properties: &mut BTreeMap<String, UnresolvedValue>,
-) {
+    properties: I,
+) -> (
+    BTreeMap<String, UnresolvedValue>,
+    BTreeMap<String, UnresolvedValue>,
+)
+where
+    I: IntoIterator<Item = (&'prop str, &'prop Variant)>,
+{
     let db = rbx_reflection_database::get();
     let class_descriptor = db.classes.get(new_inst.class.as_str());
+    let mut new_properties = BTreeMap::new();
+    let mut new_attributes = BTreeMap::new();
 
-    match value {
-        Variant::Attributes(attrs) => {
-            for (attr_name, attr_value) in attrs.iter() {
-                // We (probably) don't want to preserve internal attributes,
-                // only user defined ones.
-                if attr_name.starts_with("RBX") {
-                    continue;
+    for (name, value) in properties {
+        match value {
+            Variant::Attributes(attrs) => {
+                for (attr_name, attr_value) in attrs.iter() {
+                    // We (probably) don't want to preserve internal attributes,
+                    // only user defined ones.
+                    if attr_name.starts_with("RBX") {
+                        continue;
+                    }
+                    new_attributes.insert(
+                        attr_name.clone(),
+                        UnresolvedValue::from_variant_unambiguous(attr_value.clone()),
+                    );
                 }
-                attributes.insert(
-                    attr_name.clone(),
-                    UnresolvedValue::from_variant_unambiguous(attr_value.clone()),
-                );
             }
-        }
-        Variant::SharedString(_) => {
-            log::warn!(
+            Variant::SharedString(_) => {
+                log::warn!(
                 "Rojo cannot serialize the property {}.{name} in JSON files.\n\
                  If this is not acceptable, resave the Instance at '{}' manually as an RBXM or RBXMX.",
                 new_inst.class, snapshot.get_new_inst_path(new_inst.referent())
             )
-        }
-        _ => {
-            let new_prop_is_default = if let Some(class_descriptor) = class_descriptor {
-                if let Some(default) = db.find_default_property(class_descriptor, name) {
-                    variant_eq(value, default)
+            }
+            _ => {
+                let new_prop_is_default = if let Some(class_descriptor) = class_descriptor {
+                    if let Some(default) = db.find_default_property(class_descriptor, name) {
+                        variant_eq(value, default)
+                    } else {
+                        false
+                    }
                 } else {
                     false
-                }
-            } else {
-                false
-            };
+                };
 
-            if new_prop_is_default {
-                // This function is sometimes called with a property map that
-                // already contains properties. In that case, we need to remove
-                // the property from the map if it's at its default value.
-                properties.remove(name);
-            } else {
-                // Otherwise, we'll only insert non-default properties.
-                properties.insert(
-                    name.to_owned(),
-                    UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
-                );
+                if new_prop_is_default {
+                    // This function is sometimes called with a property map that
+                    // already contains properties. In that case, we need to remove
+                    // the property from the map if it's at its default value.
+                    new_properties.remove(name);
+                } else {
+                    // Otherwise, we'll only insert non-default properties.
+                    new_properties.insert(
+                        name.to_owned(),
+                        UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
+                    );
+                }
             }
         }
     }
+
+    (new_properties, new_attributes)
 }

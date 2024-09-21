@@ -17,7 +17,7 @@ use crate::{
     RojoRef,
 };
 
-use super::filter_default_property;
+use super::populate_unresolved_properties;
 
 pub fn snapshot_json_model(
     context: &InstanceContext,
@@ -96,18 +96,12 @@ fn json_model_from_pair<'sync>(
 
     filter_properties_preallocated(snapshot.project(), new_inst, prop_buffer);
 
-    let mut properties = BTreeMap::new();
-    let mut attributes = BTreeMap::new();
-    for (name, value) in prop_buffer.drain(..) {
-        filter_default_property(
-            snapshot,
-            new_inst,
-            name,
-            value,
-            &mut attributes,
-            &mut properties,
-        )
-    }
+    let (properties, attributes) = {
+        let prop_buffer: &_ = prop_buffer;
+        populate_unresolved_properties(snapshot, new_inst, prop_buffer.into_iter().copied())
+    };
+
+    prop_buffer.clear();
 
     let mut children = Vec::with_capacity(new_inst.children().len());
 

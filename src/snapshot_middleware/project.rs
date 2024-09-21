@@ -25,7 +25,7 @@ use crate::{
     RojoRef,
 };
 
-use super::{emit_legacy_scripts_default, filter_default_property, snapshot_from_vfs};
+use super::{emit_legacy_scripts_default, populate_unresolved_properties, snapshot_from_vfs};
 
 pub fn snapshot_project(
     context: &InstanceContext,
@@ -531,11 +531,10 @@ fn project_node_property_syncback<'inst>(
     new_inst: &Instance,
     node: &mut ProjectNode,
 ) {
-    let properties = &mut node.properties;
-    let mut attributes = BTreeMap::new();
-    for (name, value) in filtered_properties {
-        filter_default_property(snapshot, new_inst, name, value, &mut attributes, properties)
-    }
+    let (properties, attributes) =
+        populate_unresolved_properties(snapshot, new_inst, filtered_properties);
+
+    node.properties = properties;
     node.attributes = attributes;
 }
 

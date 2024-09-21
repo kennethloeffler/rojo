@@ -13,7 +13,7 @@ use crate::{
     resolution::UnresolvedValue, snapshot::InstanceSnapshot, syncback::SyncbackSnapshot, RojoRef,
 };
 
-use super::filter_default_property;
+use super::populate_unresolved_properties;
 
 /// Represents metadata in a sibling file with the same basename.
 ///
@@ -57,8 +57,6 @@ impl AdjacentMetadata {
         snapshot: &SyncbackSnapshot,
         path: PathBuf,
     ) -> anyhow::Result<Option<Self>> {
-        let mut properties = BTreeMap::new();
-        let mut attributes = BTreeMap::new();
         // TODO make this more granular.
         // I am breaking the cycle of bad TODOs. This is in reference to the fact
         // that right now, this will just not write any metadata at all for
@@ -82,16 +80,11 @@ impl AdjacentMetadata {
             .map(|inst| inst.metadata().ignore_unknown_instances)
             .unwrap_or_default();
 
-        for (name, value) in snapshot.get_path_filtered_properties(snapshot.new).unwrap() {
-            filter_default_property(
-                snapshot,
-                snapshot.new_inst(),
-                name,
-                value,
-                &mut attributes,
-                &mut properties,
-            );
-        }
+        let (properties, attributes) = populate_unresolved_properties(
+            snapshot,
+            snapshot.new_inst(),
+            snapshot.get_path_filtered_properties(snapshot.new).unwrap(),
+        );
 
         Ok(Some(Self {
             ignore_unknown_instances: if ignore_unknown_instances {
@@ -224,8 +217,6 @@ impl DirectoryMetadata {
         snapshot: &SyncbackSnapshot,
         path: PathBuf,
     ) -> anyhow::Result<Option<Self>> {
-        let mut properties = BTreeMap::new();
-        let mut attributes = BTreeMap::new();
         // TODO make this more granular.
         // I am breaking the cycle of bad TODOs. This is in reference to the fact
         // that right now, this will just not write any metadata at all for
@@ -249,16 +240,11 @@ impl DirectoryMetadata {
             .map(|inst| inst.metadata().ignore_unknown_instances)
             .unwrap_or_default();
 
-        for (name, value) in snapshot.get_path_filtered_properties(snapshot.new).unwrap() {
-            filter_default_property(
-                snapshot,
-                snapshot.new_inst(),
-                name,
-                value,
-                &mut attributes,
-                &mut properties,
-            )
-        }
+        let (properties, attributes) = populate_unresolved_properties(
+            snapshot,
+            snapshot.new_inst(),
+            snapshot.get_path_filtered_properties(snapshot.new).unwrap(),
+        );
 
         Ok(Some(Self {
             ignore_unknown_instances: if ignore_unknown_instances {
