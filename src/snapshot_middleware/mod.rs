@@ -442,12 +442,7 @@ where
                     false
                 };
 
-                if new_prop_is_default {
-                    // This function is sometimes called with a property map that
-                    // already contains properties. In that case, we need to remove
-                    // the property from the map if it's at its default value.
-                    new_properties.remove(name);
-                } else {
+                if !new_prop_is_default {
                     // Otherwise, we'll only insert non-default properties.
                     new_properties.insert(
                         name.to_owned(),
