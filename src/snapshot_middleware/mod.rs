@@ -393,6 +393,11 @@ pub fn default_sync_rules() -> &'static [SyncRule] {
     })
 }
 
+/// Generates and returns two maps of unresolved properties and attributes,
+/// respectively, appropriate for producing JSON or other file representations
+/// that use unresolved variants. This function ignores any properties that are
+/// at their default values. It also ignores any reserved attributes (i.e. ones
+/// with names starting with `RBX`).
 fn populate_unresolved_properties<'prop, I>(
     snapshot: &SyncbackSnapshot,
     new_inst: &Instance,
