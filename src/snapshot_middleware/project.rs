@@ -563,10 +563,6 @@ fn project_node_should_reserialize(
     node_attributes: &BTreeMap<String, UnresolvedValue>,
     instance: InstanceWithMeta,
 ) -> anyhow::Result<bool> {
-    if node_properties.len() != instance.properties().len() {
-        return Ok(true);
-    }
-
     for (prop_name, unresolved_node_value) in node_properties {
         if let Some(inst_value) = instance.properties().get(prop_name) {
             let node_value = unresolved_node_value
@@ -576,6 +572,30 @@ fn project_node_should_reserialize(
                 return Ok(true);
             }
         } else {
+            return Ok(true);
+        }
+    }
+
+    let db = rbx_reflection_database::get();
+    for (prop_name, inst_value) in instance.properties() {
+        if prop_name == "Attributes" {
+            continue;
+        }
+        let Some(class_descriptor) = db.classes.get(instance.class_name()) else {
+            continue;
+        };
+        let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
+            continue;
+        };
+
+        if let Some(unresolved_node_value) = node_properties.get(prop_name) {
+            let node_value = unresolved_node_value
+                .clone()
+                .resolve(instance.class_name(), prop_name)?;
+            if variant_eq(&node_value, default_value) {
+                return Ok(true);
+            }
+        } else if !variant_eq(inst_value, default_value) {
             return Ok(true);
         }
     }
