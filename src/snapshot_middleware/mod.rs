@@ -448,7 +448,6 @@ where
                 };
 
                 if !new_prop_is_default {
-                    // Otherwise, we'll only insert non-default properties.
                     new_properties.insert(
                         name.to_owned(),
                         UnresolvedValue::from_variant(value.clone(), &new_inst.class, name),
