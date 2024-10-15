@@ -576,28 +576,58 @@ fn project_node_should_reserialize(
         }
     }
 
+    // At this point, we know that the old instance contains at least all the
+    // properties specified by the new node, and that none of the properties
+    // specified by new node differ from their old values.
+    //
+    // Because node properties at default values are represented by omission, we
+    // still need to determine whether any properties missing from the new node
+    // are at non-default values on the old instance. Otherwise, we will fail to
+    // reserialize the node when properties change from non-default values to
+    // default values.
     let db = rbx_reflection_database::get();
-    if let Some(class_descriptor) = db.classes.get(instance.class_name()) {
-        for (prop_name, inst_value) in instance.properties() {
-            if prop_name == "Attributes" {
-                continue;
-            }
-            let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
-                continue;
-            };
-
-            if let Some(unresolved_node_value) = node_properties.get(prop_name) {
-                let node_value = unresolved_node_value
-                    .clone()
-                    .resolve(instance.class_name(), prop_name)?;
-                if variant_eq(&node_value, default_value) {
-                    return Ok(true);
-                }
-            } else if !variant_eq(inst_value, default_value) {
-                return Ok(true);
-            }
+    let maybe_class_descriptor = db.classes.get(instance.class_name());
+    for (prop_name, inst_value) in instance.properties() {
+        // We skip attributes because they are compared later in this function.
+        if prop_name == "Attributes" {
+            continue;
         }
-    };
+
+        // If the new node contains this property, then further checks are
+        // unnecessary, as we've already compared such properties in the
+        // previous loop.
+        if node_properties.contains_key(prop_name) {
+            continue;
+        }
+
+        // If a class descriptor cannot be found, then the reflection database
+        // might be out of date.
+        //
+        // We should always reserialize the node in this case, otherwise we may
+        // fail to reproduce properties of classes unknown to the reflection
+        // database.
+        let Some(class_descriptor) = maybe_class_descriptor else {
+            return Ok(true);
+        };
+
+        // If a default value for this property cannot be found, then the
+        // reflection database might be out of date, or this property simply
+        // does not have a default value.
+        //
+        // We should always reserialize the node in this case, otherwise we may
+        // fail to reproduce properties that do not have defaults in the
+        // reflection database.
+        let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
+            return Ok(true);
+        };
+
+        // If the old value for this property non-default, and the new node does
+        // not specify this property, it means that its value has changed to the
+        // default, and the node must be reserialized.
+        if !variant_eq(inst_value, default_value) {
+            return Ok(true);
+        }
+    }
 
     match instance.properties().get("Attributes") {
         Some(Variant::Attributes(inst_attributes)) => {
