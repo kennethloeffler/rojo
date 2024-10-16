@@ -578,7 +578,7 @@ fn project_node_should_reserialize(
 
     // At this point, we know that the old instance contains at least all the
     // properties specified by the new node, and that none of the properties
-    // specified by new node differ from their old values.
+    // specified by the new node differ from their old values.
     //
     // Because node properties at default values are represented by omission, we
     // still need to determine whether any properties missing from the new node
@@ -621,9 +621,9 @@ fn project_node_should_reserialize(
             return Ok(true);
         };
 
-        // If the old value for this property non-default, and the new node does
+        // If the old value for this property is non-default, and the new node does
         // not specify this property, it means that its value has changed to the
-        // default, and the node must be reserialized.
+        // default, and the new node must be reserialized.
         if !variant_eq(inst_value, default_value) {
             return Ok(true);
         }
