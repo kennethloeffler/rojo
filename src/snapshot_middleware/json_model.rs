@@ -98,7 +98,7 @@ fn json_model_from_pair<'sync>(
 
     let (properties, attributes) = {
         let prop_buffer: &_ = prop_buffer;
-        populate_unresolved_properties(snapshot, new_inst, prop_buffer.into_iter().copied())
+        populate_unresolved_properties(snapshot, new_inst, prop_buffer.iter().copied())
     };
 
     prop_buffer.clear();
