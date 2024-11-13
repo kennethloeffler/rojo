@@ -70,7 +70,6 @@ pub fn syncback_json_model<'sync>(
     snapshot: &SyncbackSnapshot<'sync>,
 ) -> anyhow::Result<SyncbackReturn<'sync>> {
     fn serialize<'sync>(path: &Path, model: &JsonModel) -> anyhow::Result<SyncbackReturn<'sync>> {
-        println!("{}", path.display());
         Ok(SyncbackReturn {
             fs_snapshot: FsSnapshot::new().with_added_file(
                 path,
