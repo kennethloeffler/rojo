@@ -472,11 +472,9 @@ fn node_should_reserialize(
                 .clone()
                 .resolve(instance.class_name(), prop_name)?;
             if !variant_eq(inst_value, &node_value) {
-                log::debug!("reserializing because different property on node");
                 return Ok(true);
             }
         } else {
-            log::debug!("reserializing because property did no exist on node");
             return Ok(true);
         }
     }
@@ -512,7 +510,6 @@ fn node_should_reserialize(
         // fail to reproduce properties of classes unknown to the reflection
         // database.
         let Some(class_descriptor) = maybe_class_descriptor else {
-            log::debug!("reserializing because because no class descriptor");
             return Ok(true);
         };
 
@@ -524,7 +521,6 @@ fn node_should_reserialize(
         // fail to reproduce properties that do not have defaults in the
         // reflection database.
         let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
-            log::debug!("reserializing because because no default value");
             return Ok(true);
         };
 
@@ -532,7 +528,6 @@ fn node_should_reserialize(
         // not specify this property, it means that its value has changed to the
         // default, and the new node must be reserialized.
         if !variant_eq(inst_value, default_value) {
-            log::debug!("reserializing because non-default");
             return Ok(true);
         }
     }
@@ -547,11 +542,9 @@ fn node_should_reserialize(
                     if let Some(inst_value) = inst_attributes.get(attr_name.as_str()) {
                         let node_value = unresolved_node_value.clone().resolve_unambiguous()?;
                         if !variant_eq(inst_value, &node_value) {
-                            log::debug!("reserializing because attribute different");
                             return Ok(true);
                         }
                     } else {
-                        log::debug!("reserializing because attribute DNE");
                         return Ok(true);
                     }
                 }
@@ -561,7 +554,6 @@ fn node_should_reserialize(
         Some(_) => Ok(true),
         None => {
             if !node_attributes.is_empty() {
-                log::debug!("reserializing because non-empty attributes");
                 Ok(true)
             } else {
                 Ok(false)
