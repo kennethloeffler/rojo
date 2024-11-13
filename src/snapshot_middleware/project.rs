@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{HashMap, VecDeque},
     path::Path,
 };
 
@@ -14,14 +14,12 @@ use rbx_reflection::ClassTag;
 
 use crate::{
     project::{PathNode, Project, ProjectNode},
-    resolution::UnresolvedValue,
     snapshot::{
-        InstanceContext, InstanceMetadata, InstanceSnapshot, InstanceWithMeta, InstigatingSource,
-        PathIgnoreRule, SyncRule,
+        InstanceContext, InstanceMetadata, InstanceSnapshot, InstigatingSource, PathIgnoreRule,
+        SyncRule,
     },
-    snapshot_middleware::Middleware,
+    snapshot_middleware::{node_should_reserialize, Middleware},
     syncback::{filter_properties, FsSnapshot, SyncbackReturn, SyncbackSnapshot},
-    variant_eq::variant_eq,
     RojoRef,
 };
 
@@ -512,7 +510,7 @@ pub fn syncback_project<'sync>(
     let mut fs_snapshot = FsSnapshot::new();
 
     for (node_properties, node_attributes, old_inst) in node_changed_map {
-        if project_node_should_reserialize(node_properties, node_attributes, old_inst)? {
+        if node_should_reserialize(node_properties, node_attributes, old_inst)? {
             fs_snapshot.add_file(project_path, serde_json::to_vec_pretty(&project)?);
             break;
         }
@@ -556,107 +554,6 @@ fn project_node_property_syncback_no_path(
 ) {
     let filtered_properties = filter_properties(snapshot.project(), new_inst);
     project_node_property_syncback(snapshot, filtered_properties, new_inst, node)
-}
-
-fn project_node_should_reserialize(
-    node_properties: &BTreeMap<String, UnresolvedValue>,
-    node_attributes: &BTreeMap<String, UnresolvedValue>,
-    instance: InstanceWithMeta,
-) -> anyhow::Result<bool> {
-    for (prop_name, unresolved_node_value) in node_properties {
-        if let Some(inst_value) = instance.properties().get(prop_name) {
-            let node_value = unresolved_node_value
-                .clone()
-                .resolve(instance.class_name(), prop_name)?;
-            if !variant_eq(inst_value, &node_value) {
-                return Ok(true);
-            }
-        } else {
-            return Ok(true);
-        }
-    }
-
-    // At this point, we know that the old instance contains at least all the
-    // properties specified by the new node, and that none of the properties
-    // specified by the new node differ from their old values.
-    //
-    // Because node properties at default values are represented by omission, we
-    // still need to determine whether any properties missing from the new node
-    // are at non-default values on the old instance. Otherwise, we will fail to
-    // reserialize the node when properties change from non-default values to
-    // default values.
-    let db = rbx_reflection_database::get();
-    let maybe_class_descriptor = db.classes.get(instance.class_name());
-    for (prop_name, inst_value) in instance.properties() {
-        // We skip attributes because they are compared later in this function.
-        if prop_name == "Attributes" {
-            continue;
-        }
-
-        // If the new node contains this property, then further checks are
-        // unnecessary, as we've already compared such properties in the
-        // previous loop.
-        if node_properties.contains_key(prop_name) {
-            continue;
-        }
-
-        // If a class descriptor cannot be found, then the reflection database
-        // might be out of date.
-        //
-        // We should always reserialize the node in this case, otherwise we may
-        // fail to reproduce properties of classes unknown to the reflection
-        // database.
-        let Some(class_descriptor) = maybe_class_descriptor else {
-            return Ok(true);
-        };
-
-        // If a default value for this property cannot be found, then the
-        // reflection database might be out of date, or this property simply
-        // does not have a default value.
-        //
-        // We should always reserialize the node in this case, otherwise we may
-        // fail to reproduce properties that do not have defaults in the
-        // reflection database.
-        let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
-            return Ok(true);
-        };
-
-        // If the old value for this property is non-default, and the new node does
-        // not specify this property, it means that its value has changed to the
-        // default, and the new node must be reserialized.
-        if !variant_eq(inst_value, default_value) {
-            return Ok(true);
-        }
-    }
-
-    match instance.properties().get("Attributes") {
-        Some(Variant::Attributes(inst_attributes)) => {
-            // This will also catch if one is empty but the other isn't
-            if node_attributes.len() != inst_attributes.len() {
-                Ok(true)
-            } else {
-                for (attr_name, unresolved_node_value) in node_attributes {
-                    if let Some(inst_value) = inst_attributes.get(attr_name.as_str()) {
-                        let node_value = unresolved_node_value.clone().resolve_unambiguous()?;
-                        if !variant_eq(inst_value, &node_value) {
-                            return Ok(true);
-                        }
-                    } else {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-        }
-        Some(_) => Ok(true),
-        None => {
-            if !node_attributes.is_empty() {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
-    }
 }
 
 fn infer_class_name(name: &str, parent_class: Option<&str>) -> Option<Cow<'static, str>> {

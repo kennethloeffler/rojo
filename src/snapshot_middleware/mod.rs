@@ -34,6 +34,7 @@ use crate::{
     resolution::UnresolvedValue,
     syncback::{SyncbackReturn, SyncbackSnapshot},
     variant_eq::variant_eq,
+    InstanceWithMeta,
 };
 use crate::{
     snapshot::{InstanceContext, InstanceSnapshot, SyncRule},
@@ -458,4 +459,113 @@ where
     }
 
     (new_properties, new_attributes)
+}
+
+fn node_should_reserialize(
+    node_properties: &BTreeMap<String, UnresolvedValue>,
+    node_attributes: &BTreeMap<String, UnresolvedValue>,
+    instance: InstanceWithMeta,
+) -> anyhow::Result<bool> {
+    for (prop_name, unresolved_node_value) in node_properties {
+        if let Some(inst_value) = instance.properties().get(prop_name) {
+            let node_value = unresolved_node_value
+                .clone()
+                .resolve(instance.class_name(), prop_name)?;
+            if !variant_eq(inst_value, &node_value) {
+                log::debug!("reserializing because different property on node");
+                return Ok(true);
+            }
+        } else {
+            log::debug!("reserializing because property did no exist on node");
+            return Ok(true);
+        }
+    }
+
+    // At this point, we know that the old instance contains at least all the
+    // properties specified by the new node, and that none of the properties
+    // specified by the new node differ from their old values.
+    //
+    // Because node properties at default values are represented by omission, we
+    // still need to determine whether any properties missing from the new node
+    // are at non-default values on the old instance. Otherwise, we will fail to
+    // reserialize the node when properties change from non-default values to
+    // default values.
+    let db = rbx_reflection_database::get();
+    let maybe_class_descriptor = db.classes.get(instance.class_name());
+    for (prop_name, inst_value) in instance.properties() {
+        // We skip attributes because they are compared later in this function.
+        if prop_name == "Attributes" {
+            continue;
+        }
+
+        // If the new node contains this property, then further checks are
+        // unnecessary, as we've already compared such properties in the
+        // previous loop.
+        if node_properties.contains_key(prop_name) {
+            continue;
+        }
+
+        // If a class descriptor cannot be found, then the reflection database
+        // might be out of date.
+        //
+        // We should always reserialize the node in this case, otherwise we may
+        // fail to reproduce properties of classes unknown to the reflection
+        // database.
+        let Some(class_descriptor) = maybe_class_descriptor else {
+            log::debug!("reserializing because because no class descriptor");
+            return Ok(true);
+        };
+
+        // If a default value for this property cannot be found, then the
+        // reflection database might be out of date, or this property simply
+        // does not have a default value.
+        //
+        // We should always reserialize the node in this case, otherwise we may
+        // fail to reproduce properties that do not have defaults in the
+        // reflection database.
+        let Some(default_value) = db.find_default_property(class_descriptor, prop_name) else {
+            log::debug!("reserializing because because no default value");
+            return Ok(true);
+        };
+
+        // If the old value for this property is non-default, and the new node does
+        // not specify this property, it means that its value has changed to the
+        // default, and the new node must be reserialized.
+        if !variant_eq(inst_value, default_value) {
+            log::debug!("reserializing because non-default");
+            return Ok(true);
+        }
+    }
+
+    match instance.properties().get("Attributes") {
+        Some(Variant::Attributes(inst_attributes)) => {
+            // This will also catch if one is empty but the other isn't
+            if node_attributes.len() != inst_attributes.len() {
+                Ok(true)
+            } else {
+                for (attr_name, unresolved_node_value) in node_attributes {
+                    if let Some(inst_value) = inst_attributes.get(attr_name.as_str()) {
+                        let node_value = unresolved_node_value.clone().resolve_unambiguous()?;
+                        if !variant_eq(inst_value, &node_value) {
+                            log::debug!("reserializing because attribute different");
+                            return Ok(true);
+                        }
+                    } else {
+                        log::debug!("reserializing because attribute DNE");
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+        }
+        Some(_) => Ok(true),
+        None => {
+            if !node_attributes.is_empty() {
+                log::debug!("reserializing because non-empty attributes");
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+    }
 }
