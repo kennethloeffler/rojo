@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     path::Path,
     str,
 };
@@ -17,7 +17,7 @@ use crate::{
     RojoRef,
 };
 
-use super::populate_unresolved_properties;
+use super::{node_should_reserialize, populate_unresolved_properties};
 
 pub fn snapshot_json_model(
     context: &InstanceContext,
@@ -69,17 +69,63 @@ pub fn snapshot_json_model(
 pub fn syncback_json_model<'sync>(
     snapshot: &SyncbackSnapshot<'sync>,
 ) -> anyhow::Result<SyncbackReturn<'sync>> {
+    fn serialize<'sync>(path: &Path, model: &JsonModel) -> anyhow::Result<SyncbackReturn<'sync>> {
+        println!("{}", path.display());
+        Ok(SyncbackReturn {
+            fs_snapshot: FsSnapshot::new().with_added_file(
+                path,
+                serde_json::to_vec_pretty(model).context("failed to serialize new JSON Model")?,
+            ),
+            children: Vec::new(),
+            removed_children: Vec::new(),
+        })
+    }
     let mut property_buffer = Vec::with_capacity(snapshot.new_inst().properties.len());
 
-    let mut model = json_model_from_pair(snapshot, &mut property_buffer, snapshot.new);
+    let mut root_model = json_model_from_pair(snapshot, &mut property_buffer, snapshot.new);
     // We don't need the name on the root, but we do for children.
-    model.name = None;
+    root_model.name = None;
+
+    let mut node_queue = VecDeque::new();
+    node_queue.push_back((&root_model, snapshot.old_inst(), Some(snapshot.new_inst())));
+
+    while let Some((model, old_inst, new_inst)) = node_queue.pop_front() {
+        let Some(old_inst) = old_inst else {
+            return serialize(&snapshot.path, &root_model);
+        };
+
+        let Some(new_inst) = new_inst else {
+            return serialize(&snapshot.path, &root_model);
+        };
+
+        if old_inst.class_name() != new_inst.class {
+            return serialize(&snapshot.path, &root_model);
+        }
+
+        if old_inst.name() != new_inst.name {
+            return serialize(&snapshot.path, &root_model);
+        }
+
+        if node_should_reserialize(&model.properties, &model.attributes, old_inst)? == true {
+            return serialize(&snapshot.path, &root_model);
+        }
+
+        for ((child_model, old_child_ref), new_child_ref) in model
+            .children
+            .iter()
+            .zip(old_inst.children().iter())
+            .zip(new_inst.children().iter())
+        {
+            node_queue.push_back((
+                child_model,
+                snapshot.get_old_instance(*old_child_ref),
+                snapshot.get_new_instance(*new_child_ref),
+            ))
+        }
+    }
 
     Ok(SyncbackReturn {
-        fs_snapshot: FsSnapshot::new().with_added_file(
-            &snapshot.path,
-            serde_json::to_vec_pretty(&model).context("failed to serialize new JSON Model")?,
-        ),
+        fs_snapshot: FsSnapshot::new(),
         children: Vec::new(),
         removed_children: Vec::new(),
     })
