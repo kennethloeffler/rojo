@@ -11,7 +11,6 @@ added_files:
   - src/dir/init_server_script/init.server.luau
   - src/dir/module_script.luau
   - src/dir/server_script.server.luau
-  - src/dir_with_meta/init.meta.json
   - src/model_json.model.json
   - src/project_json.project.json
   - src/rbxm.rbxm
