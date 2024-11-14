@@ -105,7 +105,7 @@ pub fn syncback_json_model<'sync>(
             return serialize(&snapshot.path, &root_model);
         }
 
-        if node_should_reserialize(&model.properties, &model.attributes, old_inst)? == true {
+        if node_should_reserialize(&model.properties, &model.attributes, old_inst)? {
             return serialize(&snapshot.path, &root_model);
         }
 
