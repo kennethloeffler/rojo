@@ -13,7 +13,7 @@ use crate::{
     resolution::UnresolvedValue, snapshot::InstanceSnapshot, syncback::SyncbackSnapshot, RojoRef,
 };
 
-use super::populate_unresolved_properties;
+use super::{node_should_reserialize, populate_unresolved_properties};
 
 /// Represents metadata in a sibling file with the same basename.
 ///
@@ -85,6 +85,12 @@ impl AdjacentMetadata {
             snapshot.new_inst(),
             snapshot.get_path_filtered_properties(snapshot.new).unwrap(),
         );
+
+        if let Some(old_inst) = snapshot.old_inst() {
+            if !node_should_reserialize(&properties, &attributes, old_inst)? {
+                return Ok(None);
+            };
+        }
 
         Ok(Some(Self {
             ignore_unknown_instances: if ignore_unknown_instances {
@@ -245,6 +251,12 @@ impl DirectoryMetadata {
             snapshot.new_inst(),
             snapshot.get_path_filtered_properties(snapshot.new).unwrap(),
         );
+
+        if let Some(old_inst) = snapshot.old_inst() {
+            if !node_should_reserialize(&properties, &attributes, old_inst)? {
+                return Ok(None);
+            };
+        }
 
         Ok(Some(Self {
             ignore_unknown_instances: if ignore_unknown_instances {
