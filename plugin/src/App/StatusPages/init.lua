@@ -5,4 +5,5 @@ return {
 	Confirming = require(script.Confirming),
 	Connected = require(script.Connected),
 	Error = require(script.Error),
+	Kicking = require(script.Kicking)
 }

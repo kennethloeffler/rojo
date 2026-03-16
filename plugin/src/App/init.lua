@@ -42,6 +42,7 @@ local AppStatus = strict("AppStatus", {
 	Settings = "Settings",
 	Connecting = "Connecting",
 	Confirming = "Confirming",
+	Kicking = "Kicking",
 	Connected = "Connected",
 	Error = "Error",
 })
@@ -342,6 +343,17 @@ function App:isSyncLockAvailable()
 	return true
 end
 
+function App:kickCurrentSyncLock()
+	local lock = ServerStorage:FindFirstChild("__Rojo_SessionLock")
+	if not lock then
+		-- No lock is made yet, so nothing needs to be done
+		return true
+	end
+
+	lock.Value = Players.LocalPlayer
+	return true
+end
+
 function App:claimSyncLock()
 	if #Players:GetPlayers() == 0 then
 		Log.trace("Skipping sync lock because this isn't in Team Create")
@@ -354,7 +366,7 @@ function App:claimSyncLock()
 		return false, priorOwner
 	end
 
-	local lock = ServerStorage:FindFirstChild("__Rojo_SessionLock")
+	local lock = ServerStorage:FindFirstChild("__Rojo_SessionLock") :: ObjectValue?
 	if not lock then
 		lock = Instance.new("ObjectValue")
 		lock.Name = "__Rojo_SessionLock"
@@ -364,6 +376,12 @@ function App:claimSyncLock()
 		Log.trace("Created and claimed sync lock")
 		return true
 	end
+
+	self.lockKickListener = lock:GetPropertyChangedSignal("Value"):Connect(function()
+		if lock.Value ~= Players.LocalPlayer then
+			self:kicked()
+		end
+	end)
 
 	lock.Value = Players.LocalPlayer
 	Log.trace("Claimed existing sync lock")
@@ -381,6 +399,10 @@ function App:releaseSyncLock()
 		lock.Value = nil
 		Log.trace("Released sync lock")
 		return
+	end
+
+	if self.lockKickListener then
+		self.lockKickListener:Disconnect()
 	end
 
 	Log.trace("Could not relase sync lock because it is owned by {}", lock.Value)
@@ -603,16 +625,15 @@ end
 function App:startSession()
 	local claimedLock, priorOwner = self:claimSyncLock()
 	if not claimedLock then
-		local msg = string.format("Could not sync because user '%s' is already syncing", tostring(priorOwner))
+		local notification_msg = string.format("Could not sync because user '%s' is already syncing", tostring(priorOwner))
 
-		Log.warn(msg)
 		self:addNotification({
-			text = msg,
+			text = notification_msg,
 			timeout = 10,
 		})
 		self:setState({
-			appStatus = AppStatus.Error,
-			errorMessage = msg,
+			appStatus = AppStatus.Kicking,
+			errorMessage = `{notification_msg}. Kick them?`,
 			toolbarIcon = Assets.Images.PluginButtonWarning,
 		})
 
@@ -849,7 +870,40 @@ function App:endSession()
 		self.cleanupPostcommit()
 	end
 
+	if self.lockKickListener then
+		self.lockKickListener:Disconnect()
+	end
+
 	Log.trace("Session terminated by user")
+end
+
+function App:kicked()
+	if self.serveSession == nil then
+		return
+	end
+
+	Log.trace("Disconnecting session")
+
+	self.serveSession:stop()
+	self.serveSession = nil
+	self:setState({
+		appStatus = AppStatus.Error,
+		errorMessage = "Kicked from sync",
+		toolbarIcon = Assets.Images.PluginButtonWarning,
+	})
+
+	if self.cleanupPrecommit ~= nil then
+		self.cleanupPrecommit()
+	end
+	if self.cleanupPostcommit ~= nil then
+		self.cleanupPostcommit()
+	end
+
+	if self.lockKickListener then
+		self.lockKickListener:Disconnect()
+	end
+
+	Log.trace("Session terminated because kicked by other user")
 end
 
 function App:render()
@@ -975,6 +1029,22 @@ function App:render()
 								toolbarIcon = Assets.Images.PluginButton,
 							})
 						end,
+					}),
+
+					Kicking = createPageElement(AppStatus.Kicking, {
+						errorMessage = self.state.errorMessage,
+
+						onClose = function()
+							self:setState({
+								appStatus = AppStatus.NotConnected,
+								toolbarIcon = Assets.Images.PluginButton,
+							})
+						end,
+
+						onKick = function()
+							self:kickCurrentSyncLock()
+							self:startSession()
+						end
 					}),
 				}),
 
