@@ -378,8 +378,9 @@ function App:claimSyncLock()
 	end
 
 	self.lockKickListener = lock:GetPropertyChangedSignal("Value"):Connect(function()
-		if lock.Value ~= Players.LocalPlayer then
-			self:kicked()
+		local newOwner = lock.Value
+		if newOwner ~= Players.LocalPlayer then
+			self:kicked(newOwner)
 		end
 	end)
 
@@ -877,18 +878,22 @@ function App:endSession()
 	Log.trace("Session terminated by user")
 end
 
-function App:kicked()
+function App:kicked(newOwner: Instance)
 	if self.serveSession == nil then
 		return
 	end
 
 	Log.trace("Disconnecting session")
 
+	local newOwnerName = if newOwner:IsA("Player") then
+		newOwner.DisplayName
+		else newOwner.Name
+
 	self.serveSession:stop()
 	self.serveSession = nil
 	self:setState({
 		appStatus = AppStatus.Error,
-		errorMessage = "Kicked from sync",
+		errorMessage = `Kicked from sync by {newOwnerName}`,
 		toolbarIcon = Assets.Images.PluginButtonWarning,
 	})
 
