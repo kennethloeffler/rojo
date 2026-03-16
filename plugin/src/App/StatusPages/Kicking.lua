@@ -127,8 +127,8 @@ function KickingPage:render()
 			LayoutOrder = 3,
 			BackgroundTransparency = 1,
 		}, {
-			Yes = e(TextButton, {
-				text = "Yes",
+			Kick = e(TextButton, {
+				text = "Kick",
 				style = "Solid",
 				transparency = self.props.transparency,
 				layoutOrder = 2,
@@ -139,8 +139,8 @@ function KickingPage:render()
 				}),
 			}),
 
-			No = e(TextButton, {
-				text = "No",
+			Cancel = e(TextButton, {
+				text = "Cancel",
 				style = "Bordered",
 				transparency = self.props.transparency,
 				layoutOrder = 1,
