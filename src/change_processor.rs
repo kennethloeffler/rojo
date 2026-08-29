@@ -157,6 +157,21 @@ impl JobThreadContext {
         applied_patches
     }
 
+    /// Snapshots the entire tree from its root.
+    ///
+    /// Used when the filesystem watcher reports that its event queue
+    /// overflowed. Events may have been lost, so any part of the project may be
+    /// out of sync and a full re-snapshot is necessary to recover.
+    fn snapshot_root(&self) -> Vec<AppliedPatchSet> {
+        let mut tree = self.tree.lock().unwrap();
+        let root_id = tree.get_root_id();
+
+        compute_and_apply_changes(&mut tree, &self.vfs, root_id)
+            .into_iter()
+            .filter(|patch| !patch.is_empty())
+            .collect()
+    }
+
     fn handle_vfs_event(&self, event: VfsEvent) {
         log::trace!("Vfs event: {:?}", event);
 
@@ -179,6 +194,7 @@ impl JobThreadContext {
                 let parent_normalized = self.vfs.canonicalize(parent).unwrap();
                 self.apply_patches(parent_normalized.join(file_name))
             }
+            VfsEvent::Rescan => self.snapshot_root(),
             _ => {
                 log::warn!("Unhandled VFS event: {:?}", event);
                 Vec::new()
@@ -382,4 +398,57 @@ fn compute_and_apply_changes(tree: &mut RojoTree, vfs: &Vfs, id: Ref) -> Option<
     };
 
     Some(applied_patch_set)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::path::Path;
+
+    use memofs::{InMemoryFs, VfsSnapshot};
+
+    use crate::snapshot::InstanceContext;
+
+    /// When the watcher's event queue overflows, events may be lost and the
+    /// watcher reports `VfsEvent::Rescan`. Since we cannot know what changed,
+    /// the whole project must be re-snapshotted so the tree catches back up.
+    #[test]
+    fn rescan_event_resyncs_tree_from_root() {
+        let mut imfs = InMemoryFs::new();
+        imfs.load_snapshot(
+            "/project",
+            VfsSnapshot::dir([("existing.luau", VfsSnapshot::file("return 1"))]),
+        )
+        .unwrap();
+        let vfs = Arc::new(Vfs::new(imfs));
+
+        let snapshot = snapshot_from_vfs(&InstanceContext::default(), &vfs, Path::new("/project"))
+            .unwrap()
+            .unwrap();
+        let tree = Arc::new(Mutex::new(RojoTree::new(snapshot)));
+
+        let context = JobThreadContext {
+            tree: Arc::clone(&tree),
+            vfs: Arc::clone(&vfs),
+            message_queue: Arc::new(MessageQueue::new()),
+        };
+
+        // Change the filesystem without delivering a Create event for it,
+        // simulating an event lost to queue overflow.
+        vfs.write("/project/added.luau", "return 2").unwrap();
+
+        context.handle_vfs_event(VfsEvent::Rescan);
+
+        let tree = tree.lock().unwrap();
+        let root = tree.root();
+        let has_added = root
+            .children()
+            .iter()
+            .any(|&id| tree.get_instance(id).unwrap().name() == "added");
+        assert!(
+            has_added,
+            "expected the Rescan event to re-snapshot the project and pick up added.luau"
+        );
+    }
 }

@@ -39,6 +39,7 @@ impl StdBackend {
                         tx.send(VfsEvent::Remove(from))?;
                         tx.send(VfsEvent::Create(to))?;
                     }
+                    DebouncedEvent::Rescan => tx.send(VfsEvent::Rescan)?,
                     _ => {}
                 }
             }

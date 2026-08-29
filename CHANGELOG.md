@@ -35,9 +35,11 @@ Making a new release? Simply add the new header with the version and date undern
 * Fixed `rojo serve` silently stopping syncing file changes on Windows when the served project path was a verbatim (`\\?\`) path, because tree paths and file-watcher event paths were canonicalized to different forms. ([#1290])
 * Fixed `rojo sourcemap --absolute` emitting verbatim (`\\?\`) paths on Windows, which broke require types in luau-lsp. ([#1290])
 * The plugin now disables the `Check for Updates` setting if you block access to `api.github.com`. ([#1297])
+* Fixed `rojo serve` going out of sync when the file watcher's event queue overflows (for example, during a branch switch or other mass file system mutations). Rojo now re-snapshots the project when the watcher reports an overflow. ([#XXXX])
 
 [#1290]: https://github.com/rojo-rbx/rojo/pull/1290
 [#1297]: https://github.com/rojo-rbx/rojo/pull/1297
+[#XXXX]: https://github.com/rojo-rbx/rojo/pull/XXXX
 
 ## [7.7.0] (July 1st, 2026)
 

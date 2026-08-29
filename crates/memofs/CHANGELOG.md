@@ -1,6 +1,9 @@
 # memofs Changelog
 
 ## Unreleased Changes
+* Added `VfsEvent::Rescan`, emitted by `StdBackend` when the file watcher's event queue overflows and events may have been lost. Consumers should respond by rescanning watched paths. [#XXXX]
+
+[#XXXX]: https://github.com/rojo-rbx/rojo/pull/XXXX
 
 # 0.4.0 (2026-07-01)
 * Added `Vfs::canonicalize`. [#1201]
