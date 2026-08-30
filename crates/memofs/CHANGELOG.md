@@ -1,6 +1,12 @@
 # memofs Changelog
 
 ## Unreleased Changes
+* Added `VfsEvent::Rescan`, emitted by `StdBackend` when the file watcher's event queue overflows and events may have been lost. Consumers should respond by rescanning watched paths. [#XXXX]
+* Added `Vfs::normalize` and `VfsLock::normalize`: a lenient form of `canonicalize` that also works on paths that no longer exist, by canonicalizing the deepest existing ancestor and reattaching the missing components. [#YYYY]
+* **Breaking:** the previous `VfsLock::normalize`, which was equivalent to `Vfs::canonicalize`, is now named `VfsLock::canonicalize` to match `Vfs`. [#YYYY]
+
+[#XXXX]: https://github.com/rojo-rbx/rojo/pull/XXXX
+[#YYYY]: https://github.com/rojo-rbx/rojo/pull/YYYY
 
 # 0.4.0 (2026-07-01)
 * Added `Vfs::canonicalize`. [#1201]
