@@ -36,10 +36,12 @@ Making a new release? Simply add the new header with the version and date undern
 * Fixed `rojo sourcemap --absolute` emitting verbatim (`\\?\`) paths on Windows, which broke require types in luau-lsp. ([#1290])
 * The plugin now disables the `Check for Updates` setting if you block access to `api.github.com`. ([#1297])
 * Fixed `rojo serve` going out of sync when the file watcher's event queue overflows (for example, during a branch switch or other mass file system mutations). Rojo now re-snapshots the project when the watcher reports an overflow. ([#XXXX])
+* Fixed `rojo serve` crashing when a VFS event fired for a path that no longer exists, such as a file being created and immediately removed, or a `.luau` file being deleted. ([#YYYY])
 
 [#1290]: https://github.com/rojo-rbx/rojo/pull/1290
 [#1297]: https://github.com/rojo-rbx/rojo/pull/1297
 [#XXXX]: https://github.com/rojo-rbx/rojo/pull/XXXX
+[#YYYY]: https://github.com/rojo-rbx/rojo/pull/YYYY
 
 ## [7.7.0] (July 1st, 2026)
 

@@ -183,16 +183,9 @@ impl JobThreadContext {
         // For a given VFS event, we might have many changes to different parts
         // of the tree. Calculate and apply all of these changes.
         let applied_patches = match event {
-            VfsEvent::Create(path) | VfsEvent::Write(path) => {
-                self.apply_patches(self.vfs.canonicalize(&path).unwrap())
-            }
-            VfsEvent::Remove(path) => {
-                // MemoFS does not track parent removals yet, so we can canonicalize
-                // the parent path safely and then append the removed path's file name.
-                let parent = path.parent().unwrap();
-                let file_name = path.file_name().unwrap();
-                let parent_normalized = self.vfs.canonicalize(parent).unwrap();
-                self.apply_patches(parent_normalized.join(file_name))
+            VfsEvent::Create(path) | VfsEvent::Write(path) | VfsEvent::Remove(path) => {
+                let normalized_path = self.vfs.normalize(&path);
+                self.apply_patches(normalized_path)
             }
             VfsEvent::Rescan => self.snapshot_root(),
             _ => {
@@ -408,7 +401,32 @@ mod test {
 
     use memofs::{InMemoryFs, VfsSnapshot};
 
-    use crate::snapshot::InstanceContext;
+    use crate::snapshot::{InstanceContext, InstanceSnapshot};
+
+    fn empty_context() -> JobThreadContext {
+        let tree = Arc::new(Mutex::new(RojoTree::new(InstanceSnapshot::new())));
+        let vfs = Arc::new(Vfs::new(InMemoryFs::new()));
+        let message_queue = Arc::new(MessageQueue::new());
+
+        JobThreadContext {
+            tree,
+            vfs,
+            message_queue,
+        }
+    }
+
+    /// Events can arrive for paths that no longer exist on disk (for example, a
+    /// file created and then immediately removed, or a file deleted along with
+    /// its parent directory). Canonicalizing such a path fails, and we must not
+    /// crash when it does.
+    #[test]
+    fn vfs_event_for_missing_path_does_not_panic() {
+        let context = empty_context();
+
+        context.handle_vfs_event(VfsEvent::Create("/does/not/exist.luau".into()));
+        context.handle_vfs_event(VfsEvent::Write("/does/not/exist.luau".into()));
+        context.handle_vfs_event(VfsEvent::Remove("/does/not/exist.luau".into()));
+    }
 
     /// When the watcher's event queue overflows, events may be lost and the
     /// watcher reports `VfsEvent::Rescan`. Since we cannot know what changed,

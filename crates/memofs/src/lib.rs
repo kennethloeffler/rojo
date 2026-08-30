@@ -232,6 +232,36 @@ impl VfsInner {
         self.backend.canonicalize(path)
     }
 
+    fn normalize<P: AsRef<Path>>(&mut self, path: P) -> PathBuf {
+        let path = path.as_ref();
+
+        if let Ok(normalized) = self.backend.canonicalize(path) {
+            return normalized;
+        }
+
+        // Walk up toward the root, remembering the components we skip, until we
+        // reach an ancestor that exists and can be canonicalized.
+        let mut suffix = Vec::new();
+        let mut current = path;
+        loop {
+            match (current.parent(), current.file_name()) {
+                (Some(parent), Some(file_name)) => {
+                    suffix.push(file_name);
+                    if let Ok(mut normalized) = self.backend.canonicalize(parent) {
+                        normalized.extend(suffix.iter().rev());
+                        return normalized;
+                    }
+                    current = parent;
+                }
+                // We reached a prefix/root (e.g. / or C:\) without finding an
+                // existing ancestor, or hit a component (like `..`) that can't
+                // be reattached. Nothing left to normalize against, so use the
+                // path as given.
+                _ => return path.to_path_buf(),
+            }
+        }
+    }
+
     fn event_receiver(&self) -> crossbeam_channel::Receiver<VfsEvent> {
         self.backend.event_receiver()
     }
@@ -436,6 +466,22 @@ impl Vfs {
         self.inner.lock().unwrap().canonicalize(path)
     }
 
+    /// Canonicalize a path leniently: like [`Vfs::canonicalize`], but usable on
+    /// paths that may no longer exist.
+    ///
+    /// This method canonicalizes the deepest ancestor that still exists and
+    /// reattaches the missing components. Canonicalizing a directory and then
+    /// joining a name onto it gives the same result as canonicalizing that name
+    /// directly, so for a removed file this reproduces the canonical form the
+    /// path had while it existed.
+    ///
+    /// If no ancestor of the path exists, the path is returned unchanged.
+    #[inline]
+    pub fn normalize<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        let path = path.as_ref();
+        self.inner.lock().unwrap().normalize(path)
+    }
+
     /// Retrieve a handle to the event receiver for this `Vfs`.
     #[inline]
     pub fn event_receiver(&self) -> crossbeam_channel::Receiver<VfsEvent> {
@@ -564,10 +610,22 @@ impl VfsLock<'_> {
     }
 
     /// Normalize a path via the underlying backend.
+    ///
+    /// Roughly equivalent to [`std::fs::canonicalize`][std::fs::canonicalize].
+    ///
+    /// [std::fs::canonicalize]: https://doc.rust-lang.org/stable/std/fs/fn.canonicalize.html
     #[inline]
-    pub fn normalize<P: AsRef<Path>>(&mut self, path: P) -> io::Result<PathBuf> {
+    pub fn canonicalize<P: AsRef<Path>>(&mut self, path: P) -> io::Result<PathBuf> {
         let path = path.as_ref();
         self.inner.canonicalize(path)
+    }
+
+    /// Canonicalize a path leniently: like [`VfsLock::canonicalize`], but
+    /// usable on paths that may no longer exist. See [`Vfs::normalize`].
+    #[inline]
+    pub fn normalize<P: AsRef<Path>>(&mut self, path: P) -> PathBuf {
+        let path = path.as_ref();
+        self.inner.normalize(path)
     }
 
     /// Retrieve a handle to the event receiver for this `Vfs`.
@@ -696,5 +754,129 @@ mod test {
         let vfs = Vfs::new(StdBackend::new().unwrap());
         let err = vfs.canonicalize(&file_path).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    /// A path that exists is canonicalized directly, so `normalize` and
+    /// `canonicalize` must agree.
+    #[test]
+    fn normalize_in_memory_existing() {
+        let mut imfs = InMemoryFs::new();
+        imfs.load_snapshot(
+            "/test",
+            VfsSnapshot::dir([("file.txt", VfsSnapshot::file("hello"))]),
+        )
+        .unwrap();
+        let vfs = Vfs::new(imfs);
+
+        assert_eq!(
+            vfs.normalize("/test/nested/../file.txt"),
+            PathBuf::from("/test/file.txt")
+        );
+    }
+
+    /// When a file no longer exists, we canonicalize the parent and reattach
+    /// the file name.
+    #[test]
+    fn normalize_in_memory_missing_leaf_uses_parent() {
+        let mut imfs = InMemoryFs::new();
+        imfs.load_snapshot(
+            "/test",
+            VfsSnapshot::dir([("file.txt", VfsSnapshot::file("hello"))]),
+        )
+        .unwrap();
+        let vfs = Vfs::new(imfs);
+
+        assert_eq!(
+            vfs.normalize("/test/nested/../gone.txt"),
+            PathBuf::from("/test/gone.txt")
+        );
+    }
+
+    /// When several ancestors are gone (e.g. a directory deleted along with its
+    /// contents) we walk up to the nearest existing ancestor, canonicalize it,
+    /// and rebuild the rest of the path from there.
+    #[test]
+    fn normalize_in_memory_missing_ancestors_walk_up() {
+        let mut imfs = InMemoryFs::new();
+        imfs.load_snapshot(
+            "/project",
+            VfsSnapshot::dir([("src", VfsSnapshot::empty_dir())]),
+        )
+        .unwrap();
+        let vfs = Vfs::new(imfs);
+
+        // Only `/project/src` exists; the `nested/..` segment before it must
+        // still be resolved even though everything after `src` is gone.
+        assert_eq!(
+            vfs.normalize("/project/nested/../src/sub/deep/gone.txt"),
+            PathBuf::from("/project/src/sub/deep/gone.txt")
+        );
+    }
+
+    /// If nothing along the path exists there is nothing to normalize against,
+    /// so the path is returned unchanged rather than erroring.
+    #[test]
+    fn normalize_in_memory_nothing_exists() {
+        let vfs = Vfs::new(InMemoryFs::new());
+
+        assert_eq!(
+            vfs.normalize("/does/not/exist.txt"),
+            PathBuf::from("/does/not/exist.txt")
+        );
+    }
+
+    /// A missing path ending in `..` can't have its trailing components
+    /// reattached (`file_name` is `None`), so it falls back to the path as
+    /// given.
+    #[test]
+    fn normalize_in_memory_parent_dir_suffix_bails() {
+        let vfs = Vfs::new(InMemoryFs::new());
+
+        assert_eq!(
+            vfs.normalize("/does/not/exist/.."),
+            PathBuf::from("/does/not/exist/..")
+        );
+    }
+
+    /// `normalize` on an existing path must match `canonicalize` exactly.
+    #[test]
+    fn normalize_std_backend_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("file.txt");
+        fs_err::write(&file_path, "hello").unwrap();
+
+        let vfs = Vfs::new(StdBackend::new().unwrap());
+        assert_eq!(
+            vfs.normalize(&file_path),
+            dunce::canonicalize(&file_path).unwrap()
+        );
+    }
+
+    /// A removed path normalizes to the exact canonical form it had while it
+    /// existed, even when several of its ancestors were removed with it.
+    ///
+    /// The in-memory tests above cover the normalization *logic* but run
+    /// identically on every OS. This one exercises the OS specifically.
+    #[test]
+    fn normalize_std_backend_matches_key_after_removal() {
+        let temp = tempfile::tempdir().unwrap();
+        let sub = temp.path().join("sub");
+        fs_err::create_dir(&sub).unwrap();
+        let file = sub.join("file.txt");
+        fs_err::write(&file, "hello").unwrap();
+
+        let vfs = Vfs::new(StdBackend::new().unwrap());
+
+        // The canonical form a consumer (like Rojo's instance tree) would
+        // have stored for this file while it existed.
+        let canonical_key = vfs.canonicalize(&file).unwrap();
+
+        fs_err::remove_file(&file).unwrap();
+        fs_err::remove_dir(&sub).unwrap();
+
+        // Even though `file` and `sub` are gone, normalization walks up to
+        // the surviving temp dir, canonicalizes it, and reattaches
+        // `sub/file.txt`, reproducing the canonical form on every platform.
+        assert_eq!(vfs.normalize(&file), canonical_key);
     }
 }
