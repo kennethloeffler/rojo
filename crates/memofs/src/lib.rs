@@ -138,6 +138,7 @@ pub enum VfsEvent {
     Create(PathBuf),
     Write(PathBuf),
     Remove(PathBuf),
+    Rescan,
 }
 
 /// Contains implementation details of the Vfs, wrapped by `Vfs` and `VfsLock`,
